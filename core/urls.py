@@ -23,5 +23,5 @@ urlpatterns = [
     # kanmind_app path's
     
     # user_auth_app path's
-    
+    path('api/', include('user_auth_app.api.urls')),
 ]

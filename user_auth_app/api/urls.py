@@ -1,8 +1,11 @@
+# standard bib imports
 from django.urls import path
 
+# third party imports
 from rest_framework.authtoken.views import obtain_auth_token
 
-from .views import UserProfileList, UserProfileDetail, RegistrationView
+# local imports
+from .views import RegistrationView
 
 
 urlpatterns = [
