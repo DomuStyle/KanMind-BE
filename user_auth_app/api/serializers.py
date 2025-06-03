@@ -86,6 +86,7 @@ class CustomAuthTokenSerializer(serializers.Serializer):
 
             # attempts to authenticate the user using the retrieved username and password
             user = authenticate(username=user_obj.username, password=password)
+
             if not user:
                 # raises a validation error if authentication fails
                 raise serializers.ValidationError("Invalid email or password.")

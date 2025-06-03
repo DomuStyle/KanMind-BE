@@ -44,16 +44,25 @@ class RegistrationView(APIView):
         return Response(data)
     
 class CustomLoginView(ObtainAuthToken):
+    # allows access to all users without requiring authentication
     permission_classes = [AllowAny]
+    
+    # sets the serializer class to handle user authentication
     serializer_class = CustomAuthTokenSerializer
 
     def post(self, request, *args, **kwargs):
+        # initializes serializer with incoming request data and request context
         serializer = self.serializer_class(data=request.data, context={'request': request})
         data = {}
 
         if serializer.is_valid():
+            # retrieves authenticated user from validated data
             user = serializer.validated_data['user']
+            
+            # creates or retrieves an authentication token for the user
             token, created = Token.objects.get_or_create(user=user)
+            
+            # constructs response data with user details and token key
             data = {
                 'token': token.key,
                 'fullname': user.username,
@@ -61,5 +70,8 @@ class CustomLoginView(ObtainAuthToken):
                 "user_id": user.id
             }
         else:
+            # sets response data to validation errors if serializer is invalid
             data = serializer.errors
+        
+        # returns response containing user authentication data
         return Response(data)
