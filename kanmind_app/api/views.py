@@ -133,3 +133,16 @@ class TasksAssignedToMeView(APIView):
         serializer = TasksSerializer(tasks, many=True)
         # return serialized data with status 200
         return Response(serializer.data, status=status.HTTP_200_OK)
+ 
+    
+class TasksReviewingView(APIView):
+    # define required permission class
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # filter tasks where user is reviewer
+        tasks = Tasks.objects.filter(reviewer=request.user)
+        # serialize filtered tasks
+        serializer = TasksSerializer(tasks, many=True)
+        # return serialized data with status 200
+        return Response(serializer.data, status=status.HTTP_200_OK)
