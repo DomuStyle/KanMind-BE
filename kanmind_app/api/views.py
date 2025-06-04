@@ -1,16 +1,21 @@
 # standard bib imports
 from django.db import models
 from django.db.models import Q
+from django.contrib.auth.models import User
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 
 # third party imports
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 
 # local imports
 from kanmind_app.models import Boards
-from .serializers import BoardSerializer, BoardsDetailSerializer
+from .serializers import BoardSerializer, BoardsDetailSerializer, UserSerializer
 from .permissions import IsBoardMemberOrOwner
+
 
 class BoardListCreateView(APIView):
     # defines the required permission class
@@ -37,6 +42,7 @@ class BoardListCreateView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         # returns an error if the data is invalid
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
     
 class BoardDetailView(APIView):
     # define required permission class
@@ -87,3 +93,30 @@ class BoardDetailView(APIView):
         board.delete()
         # return null with status 204
         return Response(None, status=status.HTTP_204_NO_CONTENT)
+    
+
+class EmailCheckView(APIView):
+    # define required permission class
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # get email from query parameters
+        email = request.query_params.get('email')
+        # check if email is provided
+        if not email:
+            return Response({'error': 'Email parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+        # validate email format
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({'error': 'Invalid email format'}, status=status.HTTP_400_BAD_REQUEST)
+        # check if user with email exists
+        try:
+            user = User.objects.get(email=email)
+            # serialize user data
+            serializer = UserSerializer(user)
+            # return user data with status 200
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            # return 404 if email not found
+            return Response({'error': 'Email not found'}, status=status.HTTP_404_NOT_FOUND)
