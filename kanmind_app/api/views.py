@@ -12,8 +12,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 # local imports
-from kanmind_app.models import Boards
-from .serializers import BoardSerializer, BoardsDetailSerializer, UserSerializer
+from kanmind_app.models import Boards, Tasks
+from .serializers import BoardSerializer, BoardsDetailSerializer, UserSerializer, TasksSerializer
 from .permissions import IsBoardMemberOrOwner
 
 
@@ -120,3 +120,16 @@ class EmailCheckView(APIView):
         except User.DoesNotExist:
             # return 404 if email not found
             return Response({'error': 'Email not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TasksAssignedToMeView(APIView):
+    # define required permission class
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # filter tasks where user is assignee
+        tasks = Tasks.objects.filter(assignee=request.user)
+        # serialize filtered tasks
+        serializer = TasksSerializer(tasks, many=True)
+        # return serialized data with status 200
+        return Response(serializer.data, status=status.HTTP_200_OK)

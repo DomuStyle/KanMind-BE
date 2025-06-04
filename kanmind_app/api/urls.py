@@ -2,7 +2,7 @@
 from django.urls import path
 
 # local imports
-from .views import BoardListCreateView, BoardDetailView, EmailCheckView
+from .views import BoardListCreateView, BoardDetailView, EmailCheckView, TasksAssignedToMeView
 
 urlpatterns = [
     # link /boards/ endpoint to BoardsListCreateView
@@ -11,4 +11,6 @@ urlpatterns = [
     path('boards/<int:board_id>/', BoardDetailView.as_view(), name='boards-detail'),
     # link /email-check/ endpoint to EmailCheckView
     path('email-check/', EmailCheckView.as_view(), name='email-check'),
+    # link /tasks/assigned-to-me/ endpoint to TasksAssignedToMeView
+    path('tasks/assigned-to-me/', TasksAssignedToMeView.as_view(), name='tasks-assigned-to-me'),
 ]
