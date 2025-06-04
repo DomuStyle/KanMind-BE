@@ -21,7 +21,7 @@ urlpatterns = [
     # admin path
     path('admin/', admin.site.urls),
     # kanmind_app path's
-    
+    path('api/', include('kanmind_app.api.urls')),
     # user_auth_app path's
     path('api/', include('user_auth_app.api.urls')),
 ]
