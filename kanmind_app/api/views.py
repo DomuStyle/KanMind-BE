@@ -1,5 +1,6 @@
 # standard bib imports
 from django.db import models
+from django.db.models import Q
 
 # third party imports
 from rest_framework.views import APIView
@@ -8,7 +9,7 @@ from rest_framework import status
 
 # local imports
 from kanmind_app.models import Boards
-from .serializers import BoardSerializer
+from .serializers import BoardSerializer, BoardsDetailSerializer
 from .permissions import IsBoardMemberOrOwner
 
 class BoardListCreateView(APIView):
@@ -36,3 +37,53 @@ class BoardListCreateView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         # returns an error if the data is invalid
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class BoardDetailView(APIView):
+    # define required permission class
+    permission_classes = [IsBoardMemberOrOwner]
+
+    def get_object(self, board_id):
+        # retrieve board by ID or return 404
+        try:
+            return Boards.objects.get(id=board_id)
+        except Boards.DoesNotExist:
+            return None
+
+    def get(self, request, board_id):
+        # get board instance
+        board = self.get_object(board_id)
+        # return 404 if board not found
+        if not board:
+            return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
+        # serialize board with details
+        serializer = BoardsDetailSerializer(board)
+        # return serialized data with status 200
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, board_id):
+        # get board instance
+        board = self.get_object(board_id)
+        # return 404 if board not found
+        if not board:
+            return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
+        # create serializer with request data
+        serializer = BoardsDetailSerializer(board, data=request.data, partial=True)
+        # check if data is valid
+        if serializer.is_valid():
+            # save updated board
+            serializer.save()
+            # return updated board data with status 200
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        # return errors if data is invalid
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, board_id):
+        # get board instance
+        board = self.get_object(board_id)
+        # return 404 if board not found
+        if not board:
+            return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
+        # delete board
+        board.delete()
+        # return null with status 204
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
