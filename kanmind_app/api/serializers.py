@@ -1,19 +1,58 @@
 from rest_framework import serializers
-from kanmind_app.models import Boards
+from kanmind_app.models import Boards, Tasks
 from django.contrib.auth.models import User
 
-class BoardSerializer(serializers.ModelSerializer):
-    # defines the field for the number of members as a SerializerMethodField
-    member_count = serializers.SerializerMethodField()
-    # defines the field for the total number of tasks
-    ticket_count = serializers.SerializerMethodField()
-    # defines the field for the number of to-do tasks
-    tasks_to_do_count = serializers.SerializerMethodField()
-    # defines the field for the number of tasks with high priority
-    tasks_high_prio_count = serializers.SerializerMethodField()
-    # defines the field for the id of the owner
-    owner_id = serializers.PrimaryKeyRelatedField(source='owner', read_only=True)
-    # defines the field for member ids (only for post requests)
+class UserSerializer(serializers.ModelSerializer):
+    # define field for user's full name
+    fullname = serializers.SerializerMethodField()
+
+    class Meta:
+        # link serializer to User model
+        model = User
+        # define fields to serialize
+        fields = ['id', 'email', 'fullname']
+
+    def get_fullname(self, obj):
+        # return user's full name combining first and last name
+        return f"{obj.first_name} {obj.last_name}".strip()
+
+
+class TasksSerializer(serializers.ModelSerializer):
+    # define field for assignee using UserSerializer
+    assignee = UserSerializer(read_only=True)
+    # define field for reviewer using UserSerializer
+    reviewer = UserSerializer(read_only=True)
+    # define field for comments count
+    comments_count = serializers.SerializerMethodField()
+
+    class Meta:
+        # link serializer to Tasks model
+        model = Tasks
+        # define fields to serialize
+        fields = [
+            'id', 
+            'title', 
+            'description', 
+            'status', 
+            'priority', 
+            'assignee', 
+            'reviewer', 
+            'due_date', 
+            'comments_count'
+        ]
+
+    def get_comments_count(self, obj):
+        # return number of comments (placeholder, assuming Comments model exists)
+        return obj.comments.count() if hasattr(obj, 'comments') else 0
+
+class BoardsDetailSerializer(serializers.ModelSerializer):
+    # define field for owner data using UserSerializer
+    owner_data = UserSerializer(source='owner', read_only=True)
+    # define field for members data using UserSerializer
+    members_data = UserSerializer(source='members', many=True, read_only=True)
+    # define field for tasks using TasksSerializer
+    tasks = TasksSerializer(many=True, read_only=True)
+    # define field for members as IDs for write operations
     members = serializers.PrimaryKeyRelatedField(
         many=True, 
         queryset=User.objects.all(), 
@@ -22,9 +61,61 @@ class BoardSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        # links the serializer to the board model
+        # link serializer to Boards model
         model = Boards
-        # defines the fields to be serialized
+        # define fields to serialize
+        fields = [
+            'id', 
+            'title', 
+            'owner_id', 
+            'owner_data', 
+            'members', 
+            'members_data', 
+            'tasks'
+        ]
+        # define read-only fields
+        read_only_fields = ['owner_id', 'owner_data', 'members_data', 'tasks']
+
+    def update(self, validated_data):
+        # extract members from validated data
+        members = validated_data.pop('members', None)
+        # update board instance
+        instance = super().update(validated_data)
+        # update members if provided
+        if members is not None:
+            # clear existing members except owner
+            instance.members.clear()
+            # add new members
+            for member in members:
+                if member != instance.owner:  # prevent adding owner as member
+                    instance.members.add(member)
+            # ensure owner is always a member
+            instance.members.add(instance.owner)
+        return instance
+        
+class BoardSerializer(serializers.ModelSerializer):
+    # define field for members count
+    member_count = serializers.SerializerMethodField()
+    # define field for total tasks count
+    ticket_count = serializers.SerializerMethodField()
+    # define field for to-do tasks count
+    tasks_to_do_count = serializers.SerializerMethodField()
+    # define field for high-priority tasks count
+    tasks_high_prio_count = serializers.SerializerMethodField()
+    # define field for owner ID
+    owner_id = serializers.PrimaryKeyRelatedField(source='owner', read_only=True)
+    # define field for members IDs (for POST requests)
+    members = serializers.PrimaryKeyRelatedField(
+        many=True, 
+        queryset=User.objects.all(), 
+        write_only=True,
+        required=False
+    )
+
+    class Meta:
+        # link serializer to Boards model
+        model = Boards
+        # define fields to serialize
         fields = [
             'id', 
             'title', 
@@ -35,32 +126,32 @@ class BoardSerializer(serializers.ModelSerializer):
             'owner_id', 
             'members'
         ]
-        # sets the title field as required
+        # set title field as required
         extra_kwargs = {'title': {'required': True}}
 
     def get_member_count(self, obj):
-        # returns the number of members in the board
+        # return count of board members
         return obj.members.count()
 
     def get_ticket_count(self, obj):
-        # returns the total number of tasks in the board
+        # return total count of tasks for the board
         return obj.tasks.count()
 
     def get_tasks_to_do_count(self, obj):
-        # returns the number of tasks with status 'to-do'
+        # return count of tasks in 'to-do' status
         return obj.tasks.filter(status='to-do').count()
 
     def get_tasks_high_prio_count(self, obj):
-        # returns the number of tasks with high priority
+        # return count of tasks with high priority
         return obj.tasks.filter(priority='high').count()
 
     def create(self, validated_data):
-        # extracts members from the validated data
+        # extract members from validated data
         members = validated_data.pop('members', [])
-        # creates a new board with the authenticated user as the owner
+        # create new board with authenticated user as owner
         board = Boards.objects.create(owner=self.context['request'].user, **validated_data)
-        # adds members to the board (excluding the owner)
+        # add members to the board (excluding owner)
         for member in members:
-            if member != self.context['request'].user:  # prevents the owner from being added twice
+            if member != self.context['request'].user:  # prevent adding owner twice
                 board.members.add(member)
         return board
