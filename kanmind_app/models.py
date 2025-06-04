@@ -40,6 +40,7 @@ class Tasks(models.Model):
     STATUS_CHOICES = (
         ('to-do', 'To Do'),
         ('in-progress', 'In Progress'),
+        ('review', 'Review'),
         ('done', 'Done'),
     )
     # defines the possible priority values for a task
@@ -48,23 +49,49 @@ class Tasks(models.Model):
         ('medium', 'Medium'),
         ('high', 'High'),
     )
-    # links the task to a board
+    # link task to a board
     board = models.ForeignKey(Boards, on_delete=models.CASCADE, related_name='tasks')
-    # defines the title of the task
+    # define task title
     title = models.CharField(max_length=255)
-    # defines the status of the task
+    # define task description
+    description = models.TextField(blank=True, null=True)
+    # define task status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='to-do')
-    # defines the priority of the task
+    # define task priority
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium')
-    # stores the creation date of the task
+    # link assignee to a user (nullable)
+    assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks')
+    # link reviewer to a user (nullable)
+    reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_tasks')
+    # define due date for the task
+    due_date = models.DateField(null=True, blank=True)
+    # store task creation date
     created_at = models.DateTimeField(auto_now_add=True)
-    # stores the update date of the task
+    # store task update date
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        # defines the name of the table in the database
+        # define database table name
         db_table = 'tasks'
 
     def __str__(self):
         # returns a readable representation of the task
         return self.title
+
+class Comments(models.Model):
+    # link comment to a task
+    task = models.ForeignKey(Tasks, on_delete=models.CASCADE, related_name='comments')
+    # link comment to a user
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # define comment text
+    content = models.TextField()
+    # store comment creation date
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # define database table name
+        db_table = 'comments'
+
+    def __str__(self):
+        # return readable representation of the comment
+        return f"Comment by {self.user} on {self.task}"
