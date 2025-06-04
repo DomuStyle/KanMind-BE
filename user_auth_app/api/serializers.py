@@ -53,14 +53,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
         account.save()  # save the user to the database
         
         return account  # return the newly created user instance
-    
-        # # check if email already exists in user db
-        # account = User(email=self.validated_data['email'], username=self.validated_data['username'])
-        # account.set_password(pw)
-        # account.save()
-        # return account
-    
-
+  
 class CustomAuthTokenSerializer(serializers.Serializer):
     # defines an email field to be used for authentication
     email = serializers.EmailField()
