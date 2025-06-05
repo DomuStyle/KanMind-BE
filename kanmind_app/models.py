@@ -63,6 +63,14 @@ class Tasks(models.Model):
     assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks')
     # link reviewer to a user (nullable)
     reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_tasks')
+    # link creator to a user
+    creator = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='created_tasks'
+    )
     # define due date for the task
     due_date = models.DateField(null=True, blank=True)
     # store task creation date
