@@ -37,3 +37,18 @@ class IsTaskCreatorOrBoardOwner(BasePermission):
     def has_permission(self, request, view):
         # allow DELETE for authenticated users (object-level checks apply)
         return request.user.is_authenticated
+    
+
+class IsCommentAuthor(BasePermission):
+    # check permissions at object level
+    def has_object_permission(self, request, view, obj):
+        # allow DELETE only for comment author
+        if request.method == 'DELETE':
+            return obj.author == request.user
+        # deny other methods by default
+        return False
+
+    # check permissions at list level
+    def has_permission(self, request, view):
+        # allow DELETE for authenticated users (object-level checks apply)
+        return request.user.is_authenticated
