@@ -9,7 +9,9 @@ from .views import (
     TasksAssignedToMeView, 
     TasksReviewingView,
     TasksCreateView,
-    TasksDetailView
+    TasksDetailView,
+    TaskCommentsView,
+    TaskCommentDetailView
     )
 
 urlpatterns = [
@@ -27,4 +29,8 @@ urlpatterns = [
     path('tasks/', TasksCreateView.as_view(), name='tasks-create'),
     # link /tasks/<task_id>/ endpoint to TasksDetailView
     path('tasks/<int:task_id>/', TasksDetailView.as_view(), name='tasks-detail'),
+    # link /tasks/<task_id>/comments/ endpoint to TaskCommentsView
+    path('tasks/<int:task_id>/comments/', TaskCommentsView.as_view(), name='task-comments'),
+    # link /tasks/<task_id>/comments/<comment_id>/ endpoint to TaskCommentDetailView
+    path('tasks/<int:task_id>/comments/<int:comment_id>/', TaskCommentDetailView.as_view(), name='task-comment-detail'),
 ]
