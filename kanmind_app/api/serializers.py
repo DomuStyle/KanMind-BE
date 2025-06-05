@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from kanmind_app.models import Boards, Tasks
+from kanmind_app.models import Boards, Tasks, Comments
 from django.contrib.auth.models import User
 
 class UserSerializer(serializers.ModelSerializer):
@@ -16,6 +16,31 @@ class UserSerializer(serializers.ModelSerializer):
         # return user's full name combining first and last name
         return f"{obj.first_name} {obj.last_name}".strip()
 
+
+class CommentSerializer(serializers.ModelSerializer):
+    # define field for author name
+    author = serializers.SerializerMethodField()
+    # define field for created_at in ISO format
+    created_at = serializers.DateTimeField(format="%Y-%m-%dT%H:%M:%SZ", read_only=True)
+
+    class Meta:
+        # link serializer to Comments model
+        model = Comments
+        # define fields to serialize
+        fields = ['id', 'created_at', 'author', 'content']
+        # define read-only fields
+        read_only_fields = ['id', 'created_at', 'author']
+
+    def get_author(self, obj):
+        # return author's full name
+        return f"{obj.author.first_name} {obj.author.last_name}".strip()
+
+    def validate_content(self, value):
+        # ensure content is not empty
+        if not value.strip():
+            raise serializers.ValidationError("Content cannot be empty.")
+        return value
+    
 
 class TasksSerializer(serializers.ModelSerializer):
     # define field for board ID
@@ -59,10 +84,12 @@ class TasksSerializer(serializers.ModelSerializer):
             'due_date', 
             'comments_count'
         ]
+        # define read-only fields
+        read_only_fields = ['id', 'assignee', 'reviewer', 'comments_count']
 
     def get_comments_count(self, obj):
         # return number of comments (placeholder, assuming Comments model exists)
-        return obj.comments.count() if hasattr(obj, 'comments') else 0
+        return obj.comments.count()
     
     def validate(self, data):
         # get board from data

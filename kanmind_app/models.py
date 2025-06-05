@@ -90,7 +90,7 @@ class Comments(models.Model):
     # link comment to a task
     task = models.ForeignKey(Tasks, on_delete=models.CASCADE, related_name='comments')
     # link comment to a user
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')
     # define comment text
     content = models.TextField()
     # store comment creation date
@@ -99,6 +99,8 @@ class Comments(models.Model):
     class Meta:
         # define database table name
         db_table = 'comments'
+        # order comments by creation date
+        ordering = ['created_at']
 
     def __str__(self):
         # return readable representation of the comment
