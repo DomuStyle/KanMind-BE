@@ -12,9 +12,9 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 # local imports
-from kanmind_app.models import Boards, Tasks
-from .serializers import BoardSerializer, BoardsDetailSerializer, UserSerializer, TasksSerializer
-from .permissions import IsBoardMemberOrOwner, IsTaskCreatorOrBoardOwner
+from kanmind_app.models import Boards, Tasks, Comments
+from .serializers import BoardSerializer, BoardsDetailSerializer, UserSerializer, TasksSerializer, CommentSerializer
+from .permissions import IsBoardMemberOrOwner, IsTaskCreatorOrBoardOwner, IsCommentAuthor
 
 
 class BoardListCreateView(APIView):
@@ -211,5 +211,96 @@ class TasksDetailView(APIView):
         self.check_object_permissions(request, task)
         # delete task
         task.delete()
+        # return null with status 204
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+    
+
+class TaskCommentsView(APIView):
+    # define required permission classes
+    permission_classes = [IsAuthenticated, IsBoardMemberOrOwner]
+
+    def get_task(self, task_id):
+        # retrieve task by ID or return None
+        try:
+            return Tasks.objects.get(id=task_id)
+        except Tasks.DoesNotExist:
+            return None
+
+    def get(self, request, task_id):
+        # get task instance
+        task = self.get_task(task_id)
+        # return 404 if task not found
+        if not task:
+            return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
+        # check if user is member or owner of the board
+        if not (task.board.owner == request.user or task.board.members.filter(id=request.user.id).exists()):
+            return Response({'error': 'You must be a member or owner of the board to view comments.'}, status=status.HTTP_403_FORBIDDEN)
+        # get all comments for the task
+        comments = task.comments.all()
+        # serialize comments
+        serializer = CommentSerializer(comments, many=True)
+        # return serialized data with status 200
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, task_id):
+        # get task instance
+        task = self.get_task(task_id)
+        # return 404 if task not found
+        if not task:
+            return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
+        # check if user is member or owner of the board
+        if not (task.board.owner == request.user or task.board.members.filter(id=request.user.id).exists()):
+            return Response({'error': 'You must be a member or owner of the board to create a comment.'}, status=status.HTTP_403_FORBIDDEN)
+        # create serializer with request data
+        serializer = CommentSerializer(data=request.data, context={'request': request})
+        # check if data is valid
+        if serializer.is_valid():
+            # create comment with current user as author
+            comment = Comments.objects.create(
+                task=task,
+                author=request.user,
+                content=serializer.validated_data['content']
+            )
+            # serialize created comment
+            comment_serializer = CommentSerializer(comment)
+            # return created comment data with status 201
+            return Response(comment_serializer.data, status=status.HTTP_201_CREATED)
+        # return errors if data is invalid
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TaskCommentDetailView(APIView):
+    # define required permission classes
+    permission_classes = [IsAuthenticated, IsCommentAuthor]
+
+    def get_task(self, task_id):
+        # retrieve task by ID or return None
+        try:
+            return Tasks.objects.get(id=task_id)
+        except Tasks.DoesNotExist:
+            return None
+
+    def get_comment(self, task, comment_id):
+        # retrieve comment by ID for the given task or return None
+        try:
+            return task.comments.get(id=comment_id)
+        except Comments.DoesNotExist:
+            return None
+
+    def delete(self, request, task_id, comment_id):
+        # get task instance
+        task = self.get_task(task_id)
+        # return 404 if task not found
+        if not task:
+            return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
+        # get comment instance
+        comment = self.get_comment(task, comment_id)
+        # return 404 if comment not found
+        if not comment:
+            return Response({'error': 'Comment not found'}, status=status.HTTP_404_NOT_FOUND)
+        # check permissions (handled by IsCommentAuthor)
+        self.check_object_permissions(request, comment)
+        # delete comment
+        comment.delete()
         # return null with status 204
         return Response(None, status=status.HTTP_204_NO_CONTENT)
