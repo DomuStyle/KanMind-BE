@@ -14,7 +14,7 @@ from rest_framework.permissions import IsAuthenticated
 # local imports
 from kanmind_app.models import Boards, Tasks
 from .serializers import BoardSerializer, BoardsDetailSerializer, UserSerializer, TasksSerializer
-from .permissions import IsBoardMemberOrOwner
+from .permissions import IsBoardMemberOrOwner, IsTaskCreatorOrBoardOwner
 
 
 class BoardListCreateView(APIView):
@@ -146,3 +146,70 @@ class TasksReviewingView(APIView):
         serializer = TasksSerializer(tasks, many=True)
         # return serialized data with status 200
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class TasksCreateView(APIView):
+    # define required permission class
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # create serializer with request data
+        serializer = TasksSerializer(data=request.data, context={'request': request})
+        # check if data is valid
+        if serializer.is_valid():
+            # get board from validated data
+            board = serializer.validated_data['board']
+            # check if user is member or owner of the board
+            if not (board.owner == request.user or board.members.filter(id=request.user.id).exists()):
+                return Response({'error': 'You must be a member or owner of the board to create a task.'}, status=status.HTTP_403_FORBIDDEN)
+            # save new task
+            task = serializer.save()
+            # return new task data with status 201
+            return Response(TasksSerializer(task).data, status=status.HTTP_201_CREATED)
+        # return errors if data is invalid
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TasksDetailView(APIView):
+    # define required permission classes
+    permission_classes = [IsAuthenticated, IsBoardMemberOrOwner, IsTaskCreatorOrBoardOwner]
+
+    def get_object(self, task_id):
+        # retrieve task by ID or return None
+        try:
+            return Tasks.objects.get(id=task_id)
+        except Tasks.DoesNotExist:
+            return None
+
+    def patch(self, request, task_id):
+        # get task instance
+        task = self.get_object(task_id)
+        # return 404 if task not found
+        if not task:
+            return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
+        # check if user is member or owner of the board
+        if not (task.board.owner == request.user or task.board.members.filter(id=request.user.id).exists()):
+            return Response({'error': 'You must be a member or owner of the board to update this task.'}, status=status.HTTP_403_FORBIDDEN)
+        # create serializer with request data
+        serializer = TasksSerializer(task, data=request.data, partial=True, context={'request': request})
+        # check if data is valid
+        if serializer.is_valid():
+            # save updated task
+            serializer.save()
+            # return updated task data with status 200
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        # return errors if data is invalid
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, task_id):
+        # get task instance
+        task = self.get_object(task_id)
+        # return 404 if task not found
+        if not task:
+            return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
+        # check permissions (handled by IsTaskCreatorOrBoardOwner)
+        self.check_object_permissions(request, task)
+        # delete task
+        task.delete()
+        # return null with status 204
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
