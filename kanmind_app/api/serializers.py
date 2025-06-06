@@ -133,35 +133,28 @@ class TasksSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 class BoardsDetailSerializer(serializers.ModelSerializer):
-    # define field for owner data using UserSerializer
-    owner_data = UserSerializer(source='owner', read_only=True)
-    # define field for members data using UserSerializer
-    members_data = UserSerializer(source='members', many=True, read_only=True)
+    # define field for owner ID
+    owner_id = serializers.PrimaryKeyRelatedField(source='owner', read_only=True)
+    # define field for members using UserSerializer (includes owner and members)
+    members = UserSerializer(many=True, read_only=True)
     # define field for tasks using TasksSerializer
     tasks = TasksSerializer(many=True, read_only=True)
-    # define field for members as IDs for write operations
-    members = serializers.PrimaryKeyRelatedField(
+    # define field for member IDs for write operations (PATCH)
+    members_ids = serializers.PrimaryKeyRelatedField(
         many=True, 
         queryset=User.objects.all(), 
         write_only=True,
-        required=False
+        required=False,
+        source='members'
     )
 
     class Meta:
         # link serializer to Boards model
         model = Boards
         # define fields to serialize
-        fields = [
-            'id', 
-            'title', 
-            'owner_id', 
-            'owner_data', 
-            'members', 
-            'members_data', 
-            'tasks'
-        ]
+        fields = ['id', 'title', 'owner_id', 'members', 'members_ids', 'tasks']
         # define read-only fields
-        read_only_fields = ['owner_id', 'owner_data', 'members_data', 'tasks']
+        read_only_fields = ['id', 'owner_id', 'members', 'tasks']
 
     def update(self, validated_data):
         # extract members from validated data

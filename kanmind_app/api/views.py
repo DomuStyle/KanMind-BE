@@ -49,7 +49,7 @@ class BoardDetailView(APIView):
     permission_classes = [IsBoardMemberOrOwner]
 
     def get_object(self, board_id):
-        # retrieve board by ID or return 404
+        # retrieve board by ID or return None
         try:
             return Boards.objects.get(id=board_id)
         except Boards.DoesNotExist:
@@ -61,6 +61,8 @@ class BoardDetailView(APIView):
         # return 404 if board not found
         if not board:
             return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
+        # check permissions (handled by IsBoardMemberOrOwner)
+        self.check_object_permissions(request, board)
         # serialize board with details
         serializer = BoardsDetailSerializer(board)
         # return serialized data with status 200
@@ -72,6 +74,8 @@ class BoardDetailView(APIView):
         # return 404 if board not found
         if not board:
             return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
+        # check permissions (handled by IsBoardMemberOrOwner)
+        self.check_object_permissions(request, board)
         # create serializer with request data
         serializer = BoardsDetailSerializer(board, data=request.data, partial=True)
         # check if data is valid
@@ -89,6 +93,8 @@ class BoardDetailView(APIView):
         # return 404 if board not found
         if not board:
             return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
+        # check permissions (handled by IsBoardMemberOrOwner)
+        self.check_object_permissions(request, board)
         # delete board
         board.delete()
         # return null with status 204
