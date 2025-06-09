@@ -1,5 +1,6 @@
 # standard bib imports
 from rest_framework import generics
+from rest_framework import status
 
 # third party imports
 from rest_framework.views import APIView
@@ -69,9 +70,9 @@ class CustomLoginView(ObtainAuthToken):
                 'email': user.email,
                 "user_id": user.id
             }
+            return Response(data, status=status.HTTP_200_OK)  # explicitly set 200 for successful login
         else:
-            # sets response data to validation errors if serializer is invalid
             data = serializer.errors
+            # returns response containing user authentication data
+            return Response(data, status=status.HTTP_400_BAD_REQUEST)  # return 400 for validation errors
         
-        # returns response containing user authentication data
-        return Response(data)
