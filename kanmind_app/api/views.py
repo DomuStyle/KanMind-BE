@@ -44,14 +44,17 @@ class BoardListCreateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
+# define board detail view
 class BoardDetailView(APIView):
     # define required permission class
     permission_classes = [IsBoardMemberOrOwner]
 
     def get_object(self, board_id):
-        # retrieve board by ID or return None
+        # try to retrieve board instance
         try:
+            # return board object
             return Boards.objects.get(id=board_id)
+        # handle case where board does not exist
         except Boards.DoesNotExist:
             return None
 
@@ -60,30 +63,48 @@ class BoardDetailView(APIView):
         board = self.get_object(board_id)
         # return 404 if board not found
         if not board:
+            # return error response
             return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
-        # check permissions (handled by IsBoardMemberOrOwner)
+        # check permissions
         self.check_object_permissions(request, board)
         # serialize board with details
         serializer = BoardsDetailSerializer(board)
         # return serialized data with status 200
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({
+            # include board ID
+            'id': serializer.data['id'],
+            # include board title
+            'title': serializer.data['title'],
+            # include owner data
+            'owner_data': serializer.data['owner_data'],
+            # include members data
+            'members_data': serializer.data['members_data']
+        }, status=status.HTTP_200_OK)
 
     def patch(self, request, board_id):
         # get board instance
         board = self.get_object(board_id)
         # return 404 if board not found
         if not board:
+            # return error response
             return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
-        # check permissions (handled by IsBoardMemberOrOwner)
+        # check permissions
         self.check_object_permissions(request, board)
         # create serializer with request data
         serializer = BoardsDetailSerializer(board, data=request.data, partial=True)
         # check if data is valid
         if serializer.is_valid():
-            # save updated board
-            serializer.save()
-            # return updated board data with status 200
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            # try to save updated board
+            try:
+                # save serializer
+                serializer.save()
+                # return updated board data with status 200
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            # handle serialization errors
+            except Exception as e:
+                # return error response
+                return Response({'error': f'Serialization error: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         # return errors if data is invalid
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -92,8 +113,9 @@ class BoardDetailView(APIView):
         board = self.get_object(board_id)
         # return 404 if board not found
         if not board:
+            # return error response
             return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
-        # check permissions (handled by IsBoardMemberOrOwner)
+        # check permissions
         self.check_object_permissions(request, board)
         # delete board
         board.delete()

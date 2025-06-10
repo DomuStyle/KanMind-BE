@@ -133,44 +133,47 @@ class TasksSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 class BoardsDetailSerializer(serializers.ModelSerializer):
-    # define field for owner ID
-    owner_id = serializers.PrimaryKeyRelatedField(source='owner', read_only=True)
-    # define field for members using UserSerializer (includes owner and members)
-    members = UserSerializer(many=True, read_only=True)
-    # define field for tasks using TasksSerializer
-    tasks = TasksSerializer(many=True, read_only=True)
+    # define field for owner data using UserSerializer
+    owner_data = UserSerializer(source='owner', read_only=True)
+    # define field for members data using UserSerializer
+    members_data = UserSerializer(source='members', many=True, read_only=True)
     # define field for member IDs for write operations (PATCH)
-    members_ids = serializers.PrimaryKeyRelatedField(
-        many=True, 
-        queryset=User.objects.all(), 
+    members = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=User.objects.all(),
         write_only=True,
         required=False,
-        source='members'
+        # source='members'
     )
 
+    # define meta class for serializer configuration
     class Meta:
         # link serializer to Boards model
         model = Boards
         # define fields to serialize
-        fields = ['id', 'title', 'owner_id', 'members', 'members_ids', 'tasks']
+        fields = ['id', 'title', 'owner_data', 'members_data', 'members']
         # define read-only fields
-        read_only_fields = ['id', 'owner_id', 'members', 'tasks']
+        read_only_fields = ['id', 'owner_data', 'members_data']
 
-    def update(self, validated_data):
+    # define update method for PATCH requests
+    def update(self, instance, validated_data):
         # extract members from validated data
         members = validated_data.pop('members', None)
-        # update board instance
-        instance = super().update(validated_data)
+        # update board instance using parent class
+        instance = super().update(instance, validated_data)
         # update members if provided
         if members is not None:
-            # clear existing members except owner
+            # clear existing members
             instance.members.clear()
             # add new members
             for member in members:
-                if member != instance.owner:  # prevent adding owner as member
-                    instance.members.add(member)
+                # add each member to the board
+                instance.members.add(member)
             # ensure owner is always a member
-            instance.members.add(instance.owner)
+            if instance.owner not in instance.members.all():
+                # add owner to members
+                instance.members.add(instance.owner)
+        # return updated instance
         return instance
         
 class BoardSerializer(serializers.ModelSerializer):
