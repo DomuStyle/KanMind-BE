@@ -32,6 +32,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
     # check if passwords match
     def save(self):
         # extract validated data for password, repeated password, email, and username
+        fullname = self. validated_data['username']
         pw = self.validated_data['password']
         repeated_pw = self.validated_data['repeated_password']
         email = self.validated_data['email']
@@ -44,9 +45,16 @@ class RegistrationSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=email).exists():
             raise serializers.ValidationError({'error': "This email address already exists."})
         
+        # split full name into first and last_name
+        name_parts = fullname.strip().split(maxsplit=1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+        
         # create a new user instance with the provided email and username
         account = User(email=self.validated_data['email'],
-                       username=self.validated_data['username'])
+                       username=self.validated_data['username'],
+                       first_name=first_name,
+                       last_name=last_name)
         
         # hash the password before saving to ensure security
         account.set_password(pw)
