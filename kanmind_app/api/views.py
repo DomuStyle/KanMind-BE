@@ -210,47 +210,56 @@ class TasksCreateView(APIView):
 
 
 class TasksDetailView(APIView):
-    # define required permission classes
-    permission_classes = [IsAuthenticated, IsBoardMemberOrOwner, IsTaskCreatorOrBoardOwner]
+    # define permission classes
+    permission_classes = [IsAuthenticated, IsBoardMemberOrOwner]
 
+    # define method to get task
     def get_object(self, task_id):
-        # retrieve task by ID or return None
+        # try to retrieve task
         try:
+            # return task object
             return Tasks.objects.get(id=task_id)
+        # handle case where task does not exist
         except Tasks.DoesNotExist:
+            # return none
             return None
 
+    # define patch method
     def patch(self, request, task_id):
         # get task instance
         task = self.get_object(task_id)
         # return 404 if task not found
         if not task:
+            # return error response
             return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
-        # check if user is member or owner of the board
-        if not (task.board.owner == request.user or task.board.members.filter(id=request.user.id).exists()):
-            return Response({'error': 'You must be a member or owner of the board to update this task.'}, status=status.HTTP_403_FORBIDDEN)
-        # create serializer with request data
+        # check permissions
+        self.check_object_permissions(request, task)
+        # create serializer
         serializer = TasksSerializer(task, data=request.data, partial=True, context={'request': request})
         # check if data is valid
         if serializer.is_valid():
             # save updated task
             serializer.save()
-            # return updated task data with status 200
+            # return updated task data
             return Response(serializer.data, status=status.HTTP_200_OK)
-        # return errors if data is invalid
+        # return errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # define delete method
     def delete(self, request, task_id):
         # get task instance
         task = self.get_object(task_id)
         # return 404 if task not found
         if not task:
+            # return error response
             return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
-        # check permissions (handled by IsTaskCreatorOrBoardOwner)
-        self.check_object_permissions(request, task)
+        # check if user is creator or board owner
+        if not (task.creator == request.user or task.board.owner == request.user):
+            # return error response
+            return Response({'error': 'Only the task creator or board owner can delete this task.'}, status=status.HTTP_403_FORBIDDEN)
         # delete task
         task.delete()
-        # return null with status 204
+        # return null
         return Response(None, status=status.HTTP_204_NO_CONTENT)
     
 
