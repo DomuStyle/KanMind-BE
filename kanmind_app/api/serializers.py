@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from kanmind_app.models import Boards, Tasks, Comments
 from django.contrib.auth.models import User
-import logging
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -43,12 +42,11 @@ class CommentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Content cannot be empty.")
         return value
     
-logger = logging.getLogger(__name__)
 
 class TasksSerializer(serializers.ModelSerializer):
-    # define field for board ID (read and write)
+    # define field for board ID (read-only for response)
     board = serializers.PrimaryKeyRelatedField(
-        queryset=Boards.objects.all()
+        read_only=True
     )
     # define field for assignee using UserSerializer
     assignee = UserSerializer(read_only=True)
@@ -91,7 +89,7 @@ class TasksSerializer(serializers.ModelSerializer):
             'comments_count'
         ]
         # define read-only fields
-        read_only_fields = ['id', 'assignee', 'reviewer', 'comments_count']
+        read_only_fields = ['id', 'board', 'assignee', 'reviewer', 'comments_count']
 
     # define method to get comments count
     def get_comments_count(self, obj):
@@ -100,16 +98,16 @@ class TasksSerializer(serializers.ModelSerializer):
 
     # define validation method
     def validate(self, data):
-        # log request data for debugging
-        logger.debug(f"Request data: {data}")
-        # get board from data
-        board = data.get('board')
-        # log board for debugging
-        logger.debug(f"Board in validate: {board}")
-        # validate board presence
-        if not board:
+        # get board from instance for PATCH or data for POST
+        board = self.instance.board if self.instance else data.get('board')
+        # validate board presence for POST
+        if not self.instance and not board:
             # raise validation error
             raise serializers.ValidationError("Board ID is required.")
+        # prevent board changes in PATCH
+        if self.instance and 'board' in data:
+            # raise validation error
+            raise serializers.ValidationError("Changing the board is not allowed.")
         # validate assignee if provided
         if 'assignee_id' in data and data['assignee_id']:
             # check membership or ownership
@@ -122,10 +120,6 @@ class TasksSerializer(serializers.ModelSerializer):
             if not board.members.filter(id=data['reviewer_id'].id).exists() and data['reviewer_id'] != board.owner:
                 # raise validation error
                 raise serializers.ValidationError("Reviewer must be a member or owner of the board.")
-        # prevent updating board in PATCH
-        if self.instance and 'board' in data:
-            # raise validation error
-            raise serializers.ValidationError("Changing the board is not allowed.")
         # return validated data
         return data
 
