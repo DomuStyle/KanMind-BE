@@ -49,6 +49,7 @@ class BoardDetailView(APIView):
     # define required permission class
     permission_classes = [IsBoardMemberOrOwner]
 
+    # define method to get board by id
     def get_object(self, board_id):
         # try to retrieve board instance
         try:
@@ -67,19 +68,20 @@ class BoardDetailView(APIView):
             return Response({'error': 'Board not found'}, status=status.HTTP_404_NOT_FOUND)
         # check permissions
         self.check_object_permissions(request, board)
-        # serialize board with details
+        # serialize board
         serializer = BoardsDetailSerializer(board)
-        # return serialized data with status 200
-        # return Response(serializer.data, status=status.HTTP_200_OK)
+        # return required fields for get
         return Response({
-            # include board ID
+            # include board id
             'id': serializer.data['id'],
             # include board title
             'title': serializer.data['title'],
-            # include owner data
-            'owner_data': serializer.data['owner_data'],
-            # include members data
-            'members_data': serializer.data['members_data']
+            # include owner id
+            'owner_id': serializer.data['owner_id'],
+            # include members
+            'members': serializer.data['members'],
+            # include tasks
+            'tasks': serializer.data['tasks']
         }, status=status.HTTP_200_OK)
 
     def patch(self, request, board_id):
@@ -99,8 +101,17 @@ class BoardDetailView(APIView):
             try:
                 # save serializer
                 serializer.save()
-                # return updated board data with status 200
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                # return required fields for patch
+                return Response({
+                    # include board id
+                    'id': serializer.data['id'],
+                    # include board title
+                    'title': serializer.data['title'],
+                    # include owner data
+                    'owner_data': serializer.data['owner_data'],
+                    # include members data
+                    'members_data': serializer.data['members_data']
+                }, status=status.HTTP_200_OK)
             # handle serialization errors
             except Exception as e:
                 # return error response

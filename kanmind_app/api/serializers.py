@@ -43,8 +43,11 @@ class CommentSerializer(serializers.ModelSerializer):
     
 
 class TasksSerializer(serializers.ModelSerializer):
-    # define field for board ID
-    board = serializers.PrimaryKeyRelatedField(read_only=True)
+    # define field for board ID (write-only for task creation)
+    board = serializers.PrimaryKeyRelatedField(
+        queryset=Boards.objects.all(),
+        write_only=True
+    )
     # define field for assignee using UserSerializer
     assignee = UserSerializer(read_only=True)
     # define field for reviewer using UserSerializer
@@ -133,33 +136,39 @@ class TasksSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 class BoardsDetailSerializer(serializers.ModelSerializer):
-    # define field for owner data using UserSerializer
+    # define field for owner id
+    owner_id = serializers.PrimaryKeyRelatedField(source='owner', read_only=True)
+    # define field for owner data
     owner_data = UserSerializer(source='owner', read_only=True)
-    # define field for members data using UserSerializer
+    # define field for members (read-only)
+    members = UserSerializer(many=True, read_only=True)
+    # define field for members data
     members_data = UserSerializer(source='members', many=True, read_only=True)
+    # define field for tasks
+    tasks = TasksSerializer(many=True, read_only=True)
     # define field for member IDs for write operations (PATCH)
-    members = serializers.PrimaryKeyRelatedField(
+    member_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=User.objects.all(),
         write_only=True,
-        required=False,
-        # source='members'
+        required=False
     )
 
     # define meta class for serializer configuration
+     # define meta class
     class Meta:
         # link serializer to Boards model
         model = Boards
         # define fields to serialize
-        fields = ['id', 'title', 'owner_data', 'members_data', 'members']
+        fields = ['id', 'title', 'owner_id', 'owner_data', 'members', 'members_data', 'tasks', 'member_ids']
         # define read-only fields
-        read_only_fields = ['id', 'owner_data', 'members_data']
+        read_only_fields = ['id', 'owner_id', 'owner_data', 'members', 'members_data', 'tasks']
 
-    # define update method for PATCH requests
+     # define update method for PATCH requests
     def update(self, instance, validated_data):
-        # extract members from validated data
-        members = validated_data.pop('members', None)
-        # update board instance using parent class
+        # extract member IDs from validated data
+        members = validated_data.pop('member_ids', None)
+        # update board instance
         instance = super().update(instance, validated_data)
         # update members if provided
         if members is not None:
