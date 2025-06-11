@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from kanmind_app.models import Boards, Tasks, Comments
 from django.contrib.auth.models import User
+import logging
+
 
 class UserSerializer(serializers.ModelSerializer):
     # define field for user's full name
@@ -41,30 +43,25 @@ class CommentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Content cannot be empty.")
         return value
     
+logger = logging.getLogger(__name__)
 
 class TasksSerializer(serializers.ModelSerializer):
-    # define field for board ID (write-only)
+    # define field for board ID (read and write)
     board = serializers.PrimaryKeyRelatedField(
-        queryset=Boards.objects.all(),
-        write_only=True
+        queryset=Boards.objects.all()
     )
-    # define field for board ID (read-only)
-    board_id = serializers.PrimaryKeyRelatedField(
-        source='board',
-        read_only=True
-    )
-    # define field for assignee
+    # define field for assignee using UserSerializer
     assignee = UserSerializer(read_only=True)
-    # define field for reviewer
+    # define field for reviewer using UserSerializer
     reviewer = UserSerializer(read_only=True)
-    # define field for assignee ID
+    # define field for assignee ID (write-only)
     assignee_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         write_only=True,
         required=False,
         allow_null=True
     )
-    # define field for reviewer ID
+    # define field for reviewer ID (write-only)
     reviewer_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         write_only=True,
@@ -82,7 +79,6 @@ class TasksSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'board',
-            'board_id',
             'title',
             'description',
             'status',
@@ -95,7 +91,7 @@ class TasksSerializer(serializers.ModelSerializer):
             'comments_count'
         ]
         # define read-only fields
-        read_only_fields = ['id', 'board_id', 'assignee', 'reviewer', 'comments_count']
+        read_only_fields = ['id', 'assignee', 'reviewer', 'comments_count']
 
     # define method to get comments count
     def get_comments_count(self, obj):
@@ -104,19 +100,28 @@ class TasksSerializer(serializers.ModelSerializer):
 
     # define validation method
     def validate(self, data):
-        # get board from data or instance
-        board = data.get('board', getattr(self.instance, 'board', None))
-        # get assignee and reviewer IDs
-        assignee_id = data.get('assignee_id')
-        reviewer_id = data.get('reviewer_id')
+        # log request data for debugging
+        logger.debug(f"Request data: {data}")
+        # get board from data
+        board = data.get('board')
+        # log board for debugging
+        logger.debug(f"Board in validate: {board}")
+        # validate board presence
+        if not board:
+            # raise validation error
+            raise serializers.ValidationError("Board ID is required.")
         # validate assignee if provided
-        if assignee_id and not board.members.filter(id=assignee_id.id).exists() and assignee_id != board.owner:
-            # raise validation error
-            raise serializers.ValidationError("Assignee must be a member or owner of the board.")
+        if 'assignee_id' in data and data['assignee_id']:
+            # check membership or ownership
+            if not board.members.filter(id=data['assignee_id'].id).exists() and data['assignee_id'] != board.owner:
+                # raise validation error
+                raise serializers.ValidationError("Assignee must be a member or owner of the board.")
         # validate reviewer if provided
-        if reviewer_id and not board.members.filter(id=reviewer_id.id).exists() and reviewer_id != board.owner:
-            # raise validation error
-            raise serializers.ValidationError("Reviewer must be a member or owner of the board.")
+        if 'reviewer_id' in data and data['reviewer_id']:
+            # check membership or ownership
+            if not board.members.filter(id=data['reviewer_id'].id).exists() and data['reviewer_id'] != board.owner:
+                # raise validation error
+                raise serializers.ValidationError("Reviewer must be a member or owner of the board.")
         # prevent updating board in PATCH
         if self.instance and 'board' in data:
             # raise validation error
@@ -130,7 +135,7 @@ class TasksSerializer(serializers.ModelSerializer):
         board = validated_data.pop('board')
         assignee_id = validated_data.pop('assignee_id', None)
         reviewer_id = validated_data.pop('reviewer_id', None)
-        # create task
+        # create task with creator as current user
         task = Tasks.objects.create(
             # set board
             board=board,
@@ -140,7 +145,7 @@ class TasksSerializer(serializers.ModelSerializer):
             assignee=assignee_id,
             # set reviewer
             reviewer=reviewer_id,
-            # include other data
+            # include other fields
             **validated_data
         )
         # return created task
@@ -148,7 +153,7 @@ class TasksSerializer(serializers.ModelSerializer):
 
     # define update method
     def update(self, instance, validated_data):
-        # remove board if present
+        # remove board from validated data
         validated_data.pop('board', None)
         # update assignee
         instance.assignee = validated_data.pop('assignee_id', instance.assignee)
@@ -156,6 +161,7 @@ class TasksSerializer(serializers.ModelSerializer):
         instance.reviewer = validated_data.pop('reviewer_id', instance.reviewer)
         # update other fields
         return super().update(instance, validated_data)
+
 
 class BoardsDetailSerializer(serializers.ModelSerializer):
     # define field for owner id
