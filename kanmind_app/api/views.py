@@ -211,7 +211,7 @@ class TasksCreateView(APIView):
 
 class TasksDetailView(APIView):
     # define required permission classes
-    permission_classes = [IsAuthenticated, IsBoardMemberOrOwner, IsTaskCreatorOrBoardOwner]
+    permission_classes = [IsAuthenticated, IsTaskCreatorOrBoardOwner]
 
     def get_object(self, task_id):
         # retrieve task by ID or return None
@@ -226,9 +226,9 @@ class TasksDetailView(APIView):
         # return 404 if task not found
         if not task:
             return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
-        # check if user is member or owner of the board
-        if not (task.board.owner == request.user or task.board.members.filter(id=request.user.id).exists()):
-            return Response({'error': 'You must be a member or owner of the board to update this task.'}, status=status.HTTP_403_FORBIDDEN)
+        # # check if user is member or owner of the board
+        # if not (task.board.owner == request.user or task.board.members.filter(id=request.user.id).exists()):
+        #     return Response({'error': 'You must be a member or owner of the board to update this task.'}, status=status.HTTP_403_FORBIDDEN)
         # create serializer with request data
         serializer = TasksSerializer(task, data=request.data, partial=True, context={'request': request})
         # check if data is valid
