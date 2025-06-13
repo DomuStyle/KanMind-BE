@@ -1,26 +1,39 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
+from kanmind_app.models import Tasks
 
 class IsBoardMemberOrOwner(BasePermission):
-    # check permissions at object level
+    # define method to check object-level permissions
     def has_object_permission(self, request, view, obj):
-        # allow safe methods (GET, HEAD, OPTIONS) for members or owner
+        # handle Tasks objects
+        if isinstance(obj, Tasks):
+            # get board from task
+            board = obj.board
+        # handle Boards objects
+        else:
+            # use object directly
+            board = obj
+        # allow GET for members or owner
         if request.method in ['GET', 'HEAD', 'OPTIONS']:
-            return obj.owner == request.user or obj.members.filter(id=request.user.id).exists()
-        # allow PATCH for members or owner of the board
+            # check membership or ownership
+            return board.owner == request.user or board.members.filter(id=request.user.id).exists()
+        # allow PATCH for members or owner
         if request.method == 'PATCH':
-            return obj.owner == request.user or obj.members.filter(id=request.user.id).exists()
-        # allow DELETE only for owner
+            # check membership or ownership
+            return board.owner == request.user or board.members.filter(id=request.user.id).exists()
+        # allow DELETE for owner
         if request.method == 'DELETE':
-            return obj.owner == request.user
-        # deny other methods by default
+            # check ownership
+            return board.owner == request.user
+        # deny other methods
         return False
 
-    # check permissions at list level
+    # define method to check list-level permissions
     def has_permission(self, request, view):
-        # allow POST requests for authenticated users (board membership checked in view)
+        # allow POST for authenticated users
         if request.method == 'POST':
+            # check authentication
             return request.user.is_authenticated
-        # allow GET, PATCH, DELETE for authenticated users (object-level checks apply)
+        # allow other methods for authenticated users
         return request.user.is_authenticated
     
 
